@@ -22,6 +22,195 @@ class Platform(pg.sprite.Sprite):
         self.rect.y = y * TILE_SCALE
 
 
+class Worm(pg.sprite.Sprite):
+    def __init__(self, map_width, map_height):
+        self._layer = 1
+
+        super(Worm, self).__init__()
+
+        self.load_animations()
+        self.current_animation = self.walk_animation_left
+        self.current_image = 0
+
+        self.image = self.current_animation[self.current_image]
+
+        self.timer = 0
+        self.interval = 200
+        self.rect = self.image.get_rect()
+        self.rect.center = (200, 400)  # Начальное положение персонажа
+
+        self.left_edge = self.rect.left - 16 * TILE_SCALE * 2
+        self.right_edge = self.rect.right + 16 * TILE_SCALE * 2
+
+        # Начальная скорость и гравитация
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.gravity = 2
+        self.is_jumping = False
+        self.map_width = map_width
+        self.map_height = map_height
+
+        self.direction = "left"
+
+
+    def load_animations(self):
+        tile_size = 32
+
+        self.walk_animation_left = []
+        num_images = 3
+        spritesheet = pg.image.load("Sprite Pack 5/4 - Squirmy Wormy/Movement_(32 x 32).png")
+
+        for i in range(num_images):
+            x = i * tile_size
+            y = 0
+            rect = pg.Rect(x, y, tile_size, tile_size)
+            image = spritesheet.subsurface(rect)
+            image = pg.transform.scale_by(image, TILE_SCALE)
+            self.walk_animation_left.append(image)
+
+        self.walk_animation_right = [
+            pg.transform.flip(image, True, False)
+            for image in self.walk_animation_left
+        ]
+
+    def update(self, platforms):
+
+        if self.direction == "right":
+            self.velocity_x = 1
+            if self.rect.right >= self.right_edge:
+                self.direction = "left"
+                self.current_animation = self.walk_animation_left
+        elif self.direction == "left":
+            self.velocity_x = -1
+            if self.rect.left <= self.left_edge:
+                self.direction = "right"
+                self.current_animation = self.walk_animation_right
+
+
+        new_x = self.rect.x + self.velocity_x
+        if 0 <= new_x <= self.map_width - self.rect.width:
+            self.rect.x = new_x
+
+        self.velocity_y += self.gravity
+        self.rect.y += self.velocity_y
+
+        for platform in platforms:
+            if platform.rect.collidepoint(self.rect.midbottom):
+                self.rect.bottom = platform.rect.top
+                self.velocity_y = 0
+                self.is_jumping = False
+            if platform.rect.collidepoint(self.rect.midtop):
+                self.rect.top = platform.rect.bottom
+                self.velocity_y = 0
+
+            if platform.rect.collidepoint(self.rect.midleft):
+                self.rect.left = platform.rect.right
+            if platform.rect.collidepoint(self.rect.midright):
+                self.rect.right = platform.rect.left
+
+        if pg.time.get_ticks() - self.timer > self.interval and not self.is_jumping:
+            self.current_image += 1
+            if self.current_image >= len(self.current_animation):
+                self.current_image = 0
+            self.image = self.current_animation[self.current_image]
+            self.timer = pg.time.get_ticks()
+
+class Croc(pg.sprite.Sprite):
+    def __init__(self, map_width, map_height):
+        self._layer = 1
+
+        super(Croc, self).__init__()
+
+        self.load_animations()
+        self.current_animation = self.walk_animation_left
+        self.current_image = 0
+
+        self.image = self.current_animation[self.current_image]
+
+        self.timer = 0
+        self.interval = 200
+        self.rect = self.image.get_rect()
+        self.rect.center = (map_width - 150, 300)  # Начальное положение персонажа
+
+        self.left_edge = self.rect.left - 16 * TILE_SCALE * 3
+        self.right_edge = self.rect.right + 16 * TILE_SCALE * 3
+
+        # Начальная скорость и гравитация
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.gravity = 2
+        self.is_jumping = False
+        self.map_width = map_width
+        self.map_height = map_height
+
+        self.direction = "left"
+
+
+    def load_animations(self):
+        tile_size = 32
+
+        self.walk_animation_left = []
+        num_images = 12
+        spritesheet = pg.image.load("Sprite Pack 5/6 - Mr. Chomps/Crawl_&_Blink_(32 x 32).png")
+
+        for i in range(num_images):
+            x = i * tile_size
+            y = 0
+            rect = pg.Rect(x, y, tile_size, tile_size)
+            image = spritesheet.subsurface(rect)
+            image = pg.transform.scale_by(image, TILE_SCALE)
+            self.walk_animation_left.append(image)
+
+        self.walk_animation_right = [
+            pg.transform.flip(image, True, False)
+            for image in self.walk_animation_left
+        ]
+
+    def update(self, platforms):
+
+        if self.direction == "right":
+            self.velocity_x = 2
+            if self.rect.right >= self.right_edge:
+                self.direction = "left"
+                self.current_animation = self.walk_animation_left
+        elif self.direction == "left":
+            self.velocity_x = -2
+            if self.rect.left <= self.left_edge:
+                self.direction = "right"
+                self.current_animation = self.walk_animation_right
+
+
+        new_x = self.rect.x + self.velocity_x
+        if 0 <= new_x <= self.map_width - self.rect.width:
+            self.rect.x = new_x
+
+        self.velocity_y += self.gravity
+        self.rect.y += self.velocity_y
+
+        for platform in platforms:
+            if platform.rect.collidepoint(self.rect.midbottom):
+                self.rect.bottom = platform.rect.top
+                self.velocity_y = 0
+                self.is_jumping = False
+            if platform.rect.collidepoint(self.rect.midtop):
+                self.rect.top = platform.rect.bottom
+                self.velocity_y = 0
+
+            if platform.rect.collidepoint(self.rect.midleft):
+                self.rect.left = platform.rect.right
+            if platform.rect.collidepoint(self.rect.midright):
+                self.rect.right = platform.rect.left
+
+        if pg.time.get_ticks() - self.timer > self.interval and not self.is_jumping:
+            self.current_image += 1
+            if self.current_image >= len(self.current_animation):
+                self.current_image = 0
+            self.image = self.current_animation[self.current_image]
+            self.timer = pg.time.get_ticks()
+
+
+
+
 class Player(pg.sprite.Sprite):
     def __init__(self, map_width, map_height):
         self._layer = 1
@@ -44,8 +233,8 @@ class Player(pg.sprite.Sprite):
         self.velocity_y = 0
         self.gravity = 2
         self.is_jumping = False
-        self.map_width = map_width * TILE_SCALE
-        self.map_height = map_height * TILE_SCALE
+        self.map_width = map_width
+        self.map_height = map_height
 
     def update(self, platforms):
 
@@ -54,13 +243,9 @@ class Player(pg.sprite.Sprite):
         if keys[pg.K_SPACE] and not self.is_jumping:
             self.jump()
 
-        # if self.is_jumping:
-        #     if self.velocity_x > 0:
-        #         self.current_animation = self.falling_animation_right
-        #         self.current_image = 0
-        #     elif self.velocity_x < 0:
-        #         self.current_animation = self.falling_animation_right
-        #         self.current_image = 0
+
+
+
 
 
         if keys[pg.K_a]:
@@ -82,6 +267,8 @@ class Player(pg.sprite.Sprite):
                 elif self.current_animation == self.running_animation_right:
                     self.current_animation = self.idle_animation_right
             self.velocity_x = 0
+
+
 
 
         new_x = self.rect.x + self.velocity_x
@@ -112,8 +299,14 @@ class Player(pg.sprite.Sprite):
             self.current_image += 1
             if self.current_image >= len(self.current_animation):
                 self.current_image = 0
-            self.image = self.current_animation[self.current_image]
-            self.timer = pg.time.get_ticks()
+
+            if not self.is_jumping or self.velocity_y > 0:
+                self.image = self.current_animation[self.current_image]
+            else:
+                self.image = self.jumping_animation[self.velocity_x < 0]
+
+
+            self.timer =pg.time.get_ticks()
 
     def load_animations(self):
         tile_size = 32
@@ -158,23 +351,42 @@ class Player(pg.sprite.Sprite):
 
 
 
-        # self.falling_animation_right = []
-        # num_images = 2
+        self.falling_animation_right = []
+        num_images = 2
+
+        spritesheet = pg.image.load("Sprite Pack 5/2 - Lil Wiz/Falling_(32 x 32).png")
+
+        for i in range(num_images):
+            x = i * tile_size
+            y = 0
+            rect = pg.Rect(x, y, tile_size, tile_size)
+            image = spritesheet.subsurface(rect)
+            image = pg.transform.scale_by(image, TILE_SCALE)
+            self.falling_animation_right.append(image)
+
+        self.falling_animation_left = [
+            pg.transform.flip(image, True, False)
+            for image in self.falling_animation_right
+        ]
+
+        self.jumping_animation = []
+
+
+        image = pg.image.load("Sprite Pack 5/2 - Lil Wiz/Jumping_(32 x 32).png")
+
+
+        image = pg.transform.scale_by(image, TILE_SCALE)
+        left_image = pg.transform.flip(image, True, False)
+        self.jumping_animation.append(image)
+        self.jumping_animation.append(left_image)
+        # self.
+        # image = pg.image.load("Sprite Pack 5/2 - Lil Wiz/Falling_(32 x 32).png")
         #
-        # spritesheet = pg.image.load("Sprite Pack 5/2 - Lil Wiz/Falling_(32 x 32).png")
-        #
-        # for i in range(num_images):
-        #     x = i * tile_size
-        #     y = i * tile_size
-        #     rect = pg.Rect(x, y, tile_size, tile_size)
-        #     image = spritesheet.subsurface(rect)
-        #     image = pg.transform.scale_by(image, TILE_SCALE)
-        #     self.falling_animation_right.append(image)
-        #
-        # self.falling_animation_left = [
-        #     pg.transform.flip(image, True, False)
-        #     for image in self.falling_animation_right
-        # ]
+        # image = pg.transform.scale_by(image, TILE_SCALE)
+        # left_image = pg.transform.flip(image, True, False)
+        # self.jumping_animation[1].append(image)
+        # self.jumping_animation[1].append(left_image)
+
 
     def jump(self):
         self.velocity_y = -TILE_SCALE * 16
@@ -192,6 +404,7 @@ class Game:
 
         self.all_sprites = pg.sprite.LayeredUpdates()
         self.platforms = pg.sprite.Group()
+        self.enemies = pg.sprite.Group()
 
 
         self.sky = pg.image.load("map/sky.png")
@@ -215,8 +428,15 @@ class Game:
         self.map_pixel_height = self.tmx_map.height * self.tmx_map.tileheight * TILE_SCALE
 
         self.player = Player(self.map_pixel_width, self.map_pixel_height)
+        self.worm = Worm(self.map_pixel_width, self.map_pixel_height)
+        self.croc = Croc(self.map_pixel_width, self.map_pixel_height)
+
 
         self.all_sprites.add(self.player)
+        self.all_sprites.add(self.worm)
+        self.enemies.add(self.worm)
+        self.all_sprites.add(self.croc)
+        self.enemies.add(self.croc)
 
 
         for layer in self.tmx_map:
@@ -287,6 +507,7 @@ class Game:
 
     def update(self):
         self.player.update(self.platforms)
+        self.enemies.update(self.platforms)
 
         self.camera_x = self.player.rect.x - SCREEN_WIDTH //2
         self.camera_y = self.player.rect.y - SCREEN_HEIGHT //2
