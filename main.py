@@ -1,6 +1,5 @@
 import pygame as pg
 import pytmx
-import sys
 
 pg.init()
 
@@ -215,6 +214,31 @@ class Croc(pg.sprite.Sprite):
             self.timer = pg.time.get_ticks()
 
 
+class Ball(pg.sprite.Sprite):
+    def __init__(self, player_rect, direction):
+        super(Ball, self).__init__()
+
+        self.direction = direction
+        self.speed = 10
+
+        self.image = pg.image.load('Sprite Pack 5/ball.png')
+        self.image = pg.transform.scale(self.image, (30, 30))
+
+        self.rect = self.image.get_rect()
+        if direction == 'right':
+            self.rect.x = player_rect.right
+        else:
+            self.rect.right = player_rect.left
+        self.rect.y = player_rect.centery
+
+    def update(self):
+        if self.direction == 'right':
+            self.rect.x += self.speed
+        else:
+            self.rect.x -= self.speed
+
+
+
 class Player(pg.sprite.Sprite):
     def __init__(self, map_width, map_height):
         self._layer = 1
@@ -230,7 +254,10 @@ class Player(pg.sprite.Sprite):
         self.timer = 0
         self.interval = 200
         self.rect = self.image.get_rect()
-        self.rect.center = (200, 400)  # Начальное положение персонажа
+        self.rect.center = (200, 400)
+        self.phys_body = pg.Rect(0, 0, self.rect.w // 2, self.rect.h)
+        self.phys_body.midbottom = self.rect.midbottom
+        # Начальное положение персонажа
 
         # Начальная скорость и гравитация
         self.velocity_x = 0
@@ -276,26 +303,29 @@ class Player(pg.sprite.Sprite):
                     self.current_animation = self.idle_animation_right
             self.velocity_x = 0
 
-        new_x = self.rect.x + self.velocity_x
-        if 0 <= new_x <= self.map_width - self.rect.width:
-            self.rect.x = new_x
+        new_x = self.phys_body.x + self.velocity_x
+        if 0 <= new_x <= self.map_width - self.phys_body.width:
+            self.phys_body.x = new_x
 
         self.velocity_y += self.gravity
-        self.rect.y += self.velocity_y
+        if self.velocity_y > 16 * TILE_SCALE:
+            self.velocity_y = 16 * TILE_SCALE
+        self.phys_body.y += self.velocity_y
+        self.rect.midbottom = self.phys_body.midbottom
 
         for platform in platforms:
-            if platform.rect.collidepoint(self.rect.midbottom):
-                self.rect.bottom = platform.rect.top
+            if platform.rect.collidepoint(self.phys_body.midbottom):
+                self.phys_body.bottom = platform.rect.top
                 self.velocity_y = 0
                 self.is_jumping = False
-            if platform.rect.collidepoint(self.rect.midtop):
-                self.rect.top = platform.rect.bottom
+            if platform.rect.collidepoint(self.phys_body.midtop):
+                self.phys_body.top = platform.rect.bottom
                 self.velocity_y = 0
 
-            if platform.rect.collidepoint(self.rect.midleft):
-                self.rect.left = platform.rect.right
-            if platform.rect.collidepoint(self.rect.midright):
-                self.rect.right = platform.rect.left
+            if platform.rect.collidepoint(self.phys_body.midleft):
+                self.phys_body.left = platform.rect.right
+            if platform.rect.collidepoint(self.phys_body.midright):
+                self.phys_body.right = platform.rect.left
 
         if pg.time.get_ticks() - self.timer > self.interval:
             self.current_image += 1
@@ -386,7 +416,7 @@ class Player(pg.sprite.Sprite):
         # self.jumping_animation[1].append(left_image)
 
     def jump(self):
-        self.velocity_y = -TILE_SCALE * 16
+        self.velocity_y = -TILE_SCALE * 19
         self.is_jumping = True
 
 
@@ -404,6 +434,7 @@ class Game:
         self.all_sprites = pg.sprite.LayeredUpdates()
         self.platforms = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
+        self.balls = pg.sprite.Group()
 
         self.sky = pg.image.load("map/sky.png")
         self.mountains = pg.image.load("map/mountains.png")
@@ -427,11 +458,7 @@ class Game:
 
         self.player = Player(self.map_pixel_width, self.map_pixel_height)
 
-
-
         self.all_sprites.add(self.player)
-
-
 
         for layer in self.tmx_map:
             for x, y, gid in layer:
@@ -504,6 +531,12 @@ class Game:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.is_running = False
+            if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                direction = 'right' if self.player.current_animation in (
+                self.player.idle_animation_right, self.player.running_animation_right) else 'left'
+                ball = Ball(self.player.rect, direction)
+                self.balls.add(ball)
+                self.all_sprites.add(ball)
             if self.mode == "game over":
                 if event.type == pg.KEYDOWN:
                     self.setup()
@@ -530,7 +563,7 @@ class Game:
 
         self.player.update(self.platforms)
         self.enemies.update(self.platforms)
-
+        self.balls.update()
         self.camera_x = self.player.rect.x - SCREEN_WIDTH // 2
         self.camera_y = self.player.rect.y - SCREEN_HEIGHT // 2
 
@@ -538,6 +571,9 @@ class Game:
 
         self.camera_y = max(0, min(self.camera_y, self.map_pixel_height - SCREEN_HEIGHT))
 
+        pg.sprite.groupcollide(self.balls, self.enemies, True, True)
+
+        pg.sprite.groupcollide(self.balls, self.platforms, True, False)
     def draw(self):
         for i in range(-1, (SCREEN_WIDTH // self.sky.get_width()) + 2):
             self.screen.blit(self.sky, (i * self.sky.get_width(), 0))
@@ -554,6 +590,8 @@ class Game:
         for sprite in self.all_sprites:
             self.screen.blit(sprite.image, sprite.rect.move(-self.camera_x, -self.camera_y))
 
+        # pg.draw.rect(self.screen, pg.Color("yellow"), self.player.rect.move(-self.camera_x, -self.camera_y), 4)
+        # pg.draw.rect(self.screen, pg.Color("red"), self.player.phys_body.move(-self.camera_x, -self.camera_y), 4)
         pg.draw.rect(self.screen, pg.Color(255, int(self.player.hp / 10 * 255), 0), (20, 20, self.player.hp * 10, 15))
         pg.draw.rect(self.screen, pg.Color("black"), (20, 20, 100, 15), 2)
 
