@@ -246,6 +246,7 @@ class Ball(pg.sprite.Sprite):
 
 
 
+
 class Player(pg.sprite.Sprite):
     def __init__(self, map_width, map_height):
         self._layer = 1
