@@ -220,7 +220,7 @@ class Ball(pg.sprite.Sprite):
 
         self.direction = direction
         self.speed = 10
-
+        self.interval = 10000
         self.image = pg.image.load('Sprite Pack 5/ball.png')
         self.image = pg.transform.scale(self.image, (30, 30))
 
@@ -236,6 +236,13 @@ class Ball(pg.sprite.Sprite):
             self.rect.x += self.speed
         else:
             self.rect.x -= self.speed
+
+        self.timer = pg.time.get_ticks()
+
+        if pg.time.get_ticks() - self.timer > self.interval:
+            self.kill()
+        elif self.rect.x >= SCREEN_WIDTH or self.rect.x <= 0:
+            self.kill()
 
 
 
