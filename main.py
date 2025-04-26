@@ -8,7 +8,10 @@ SCREEN_HEIGHT = 600
 FPS = 80
 TILE_SCALE = 2
 
-font = pg.font.Font(None, 72)
+
+
+
+font = pg.font.Font('pixelfont.ttf', 70)
 
 
 class Platform(pg.sprite.Sprite):
@@ -20,6 +23,48 @@ class Platform(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x * TILE_SCALE
         self.rect.y = y * TILE_SCALE
+
+
+class Coin(pg.sprite.Sprite):
+    def __init__(self, x, y):
+        self._layer = 2
+        super(Coin, self).__init__()
+        self.load_animations()
+        self.current_image = 0
+        self.image = self.animation[self.current_image]
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILE_SCALE
+        self.rect.y = y * TILE_SCALE
+        self.timer = pg.time.get_ticks()
+        self.interval = 200
+
+
+    def load_animations(self):
+        tile_size = 16
+
+        self.animation = []
+        num_images = 5
+
+        spritesheet = pg.image.load("Coin_gems/MonedaD.png")
+
+        for i in range(num_images):
+            x = i * tile_size
+            y = 0
+            rect = pg.Rect(x, y, tile_size, tile_size)
+            image = spritesheet.subsurface(rect)
+            image = pg.transform.scale_by(image, TILE_SCALE)
+            self.animation.append(image)
+
+    def update(self):
+        if pg.time.get_ticks() - self.timer > self.interval:
+            self.current_image += 1
+            if self.current_image >= len(self.animation):
+                self.current_image = 0
+
+            self.image = self.animation[self.current_image]
+            self.timer = pg.time.get_ticks()
+
+
 
 
 class Worm(pg.sprite.Sprite):
@@ -224,6 +269,7 @@ class Ball(pg.sprite.Sprite):
         self.image = pg.image.load('Sprite Pack 5/ball.png')
         self.image = pg.transform.scale(self.image, (30, 30))
 
+
         self.rect = self.image.get_rect()
         if direction == 'right':
             self.rect.x = player_rect.right
@@ -231,17 +277,13 @@ class Ball(pg.sprite.Sprite):
             self.rect.right = player_rect.left
         self.rect.y = player_rect.centery
 
-    def update(self):
+    def update(self, left_edge, right_edge):
         if self.direction == 'right':
             self.rect.x += self.speed
         else:
             self.rect.x -= self.speed
 
-        self.timer = pg.time.get_ticks()
-
-        if pg.time.get_ticks() - self.timer > self.interval:
-            self.kill()
-        elif self.rect.x >= SCREEN_WIDTH or self.rect.x <= 0:
+        if self.rect.right < left_edge or self.rect.x > right_edge:
             self.kill()
 
 
@@ -436,6 +478,12 @@ class Game:
 
     # noinspection PyAttributeOutsideInit
     def setup(self):
+        pg.mixer.init()
+        pg.mixer.music.load('music/JRPG_mainTheme.ogg')
+        pg.mixer.music.set_volume(0.1)
+        pg.mixer.music.play()
+        self.coin_sound = pg.mixer.Sound('sounds/coin.flac')
+        self.coin_sound.set_volume(0.1)
         self.clock = pg.time.Clock()
         self.is_running = False
         self.mode = 'game'
@@ -443,6 +491,8 @@ class Game:
         self.platforms = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
         self.balls = pg.sprite.Group()
+        self.coins = pg.sprite.Group()
+        self.collected_coins = 0
 
         self.sky = pg.image.load("map/sky.png")
         self.mountains = pg.image.load("map/mountains.png")
@@ -499,6 +549,14 @@ class Game:
                                     )
                         self.all_sprites.add(worm)
                         self.enemies.add(worm)
+
+                    elif layer.name == 'coins':
+                        coin = Coin(x * self.tmx_map.tilewidth,
+                                    y * self.tmx_map.tileheight)
+
+                        self.coins.add(coin)
+                        self.all_sprites.add(coin)
+
                     elif layer.name == "crocodiles":
                         croc = Croc(self.map_pixel_width, self.map_pixel_height,
                                     (x * self.tmx_map.tilewidth * TILE_SCALE,
@@ -565,13 +623,18 @@ class Game:
             self.mode = "game over"
             return
 
+        if self.player.rect.y >= self.map_pixel_height:
+            self.player.hp = 0
+
         for enemy in self.enemies.sprites():
             if pg.sprite.collide_mask(self.player, enemy):
                 self.player.get_damage()
 
         self.player.update(self.platforms)
         self.enemies.update(self.platforms)
-        self.balls.update()
+        self.balls.update(self.player.rect.x - SCREEN_WIDTH //2,
+                          self.player.rect.x + SCREEN_WIDTH //2)
+        self.coins.update()
         self.camera_x = self.player.rect.x - SCREEN_WIDTH // 2
         self.camera_y = self.player.rect.y - SCREEN_HEIGHT // 2
 
@@ -582,6 +645,15 @@ class Game:
         pg.sprite.groupcollide(self.balls, self.enemies, True, True)
 
         pg.sprite.groupcollide(self.balls, self.platforms, True, False)
+
+
+
+        hits = pg.sprite.spritecollide(self.player, self.coins, True)
+
+        for hit in hits:
+            self.collected_coins += 1
+            self.coin_sound.play()
+
     def draw(self):
         for i in range(-1, (SCREEN_WIDTH // self.sky.get_width()) + 2):
             self.screen.blit(self.sky, (i * self.sky.get_width(), 0))
@@ -603,8 +675,10 @@ class Game:
         pg.draw.rect(self.screen, pg.Color(255, int(self.player.hp / 10 * 255), 0), (20, 20, self.player.hp * 10, 15))
         pg.draw.rect(self.screen, pg.Color("black"), (20, 20, 100, 15), 2)
 
+        self.screen.blit(font.render(f'{self.collected_coins}', False, pg.Color('yellow')), (SCREEN_WIDTH - 50, 20))
+
         if self.mode == 'game over':
-            text = font.render("Вы проиграли", True, (255, 0, 0))
+            text = font.render("Game Over", False, (255, 0, 0))
 
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             self.screen.blit(text, text_rect)
