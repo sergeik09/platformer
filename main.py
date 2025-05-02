@@ -335,7 +335,7 @@ class Player(pg.sprite.Sprite):
         self.timer = 0
         self.interval = 200
         self.rect = self.image.get_rect()
-        self.rect.center = (200, 400)
+        self.rect.center = (200, 30)
         self.phys_body = pg.Rect(0, 0, self.rect.w // 2, self.rect.h)
         self.phys_body.midbottom = self.rect.midbottom
         # Начальное положение персонажа
@@ -368,12 +368,12 @@ class Player(pg.sprite.Sprite):
             if self.current_animation != self.running_animation_left:
                 self.current_animation = self.running_animation_left
                 self.current_image = 0
-            self.velocity_x = -4
+            self.velocity_x = -6
         elif keys[pg.K_d]:
             if self.current_animation != self.running_animation_right:
                 self.current_animation = self.running_animation_right
                 self.current_image = 0
-            self.velocity_x = 4
+            self.velocity_x = 6
         else:
             if self.current_animation not in (
                     self.idle_animation_right, self.idle_animation_left
@@ -505,7 +505,7 @@ class Game:
     def __init__(self):
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Платформер")
-        self.level = 2
+        self.level = 1
         self.setup()
 
     # noinspection PyAttributeOutsideInit
@@ -720,7 +720,7 @@ class Game:
         self.screen.blit(font.render(f'{self.collected_coins}', False, pg.Color('yellow')), (SCREEN_WIDTH - 50, 20))
 
         if self.mode == 'game over':
-            text = font.render("Game Over", False, (255, 0, 0))
+            text = font.render("Game  Over", False, (255, 0, 0))
 
             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             self.screen.blit(text, text_rect)
