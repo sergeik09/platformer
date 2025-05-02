@@ -8,10 +8,47 @@ SCREEN_HEIGHT = 600
 FPS = 80
 TILE_SCALE = 2
 
-
-
-
 font = pg.font.Font('pixelfont.ttf', 70)
+
+
+class Portal(pg.sprite.Sprite):
+    def __init__(self, x, y):
+        self._layer = 2
+        super(Portal, self).__init__()
+        self.load_animations()
+        self.current_image = 0
+        self.image = self.animation[self.current_image]
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILE_SCALE
+        self.rect.bottom = y * TILE_SCALE
+        self.timer = pg.time.get_ticks()
+        self.interval = 200
+
+    def load_animations(self):
+        tile_size = 64
+
+        self.animation = []
+        num_images = 8
+
+        spritesheet = pg.image.load("map/Green Portal Sprite Sheet.png")
+
+        for i in range(num_images):
+            x = i * tile_size
+            y = 0
+            rect = pg.Rect(x, y, tile_size, tile_size)
+            image = spritesheet.subsurface(rect)
+            image = pg.transform.scale_by(image, TILE_SCALE)
+            image = pg.transform.flip(image, True, False)
+            self.animation.append(image)
+
+    def update(self):
+        if pg.time.get_ticks() - self.timer > self.interval:
+            self.current_image += 1
+            if self.current_image >= len(self.animation):
+                self.current_image = 0
+
+            self.image = self.animation[self.current_image]
+            self.timer = pg.time.get_ticks()
 
 
 class Platform(pg.sprite.Sprite):
@@ -38,7 +75,6 @@ class Coin(pg.sprite.Sprite):
         self.timer = pg.time.get_ticks()
         self.interval = 200
 
-
     def load_animations(self):
         tile_size = 16
 
@@ -63,8 +99,6 @@ class Coin(pg.sprite.Sprite):
 
             self.image = self.animation[self.current_image]
             self.timer = pg.time.get_ticks()
-
-
 
 
 class Worm(pg.sprite.Sprite):
@@ -269,7 +303,6 @@ class Ball(pg.sprite.Sprite):
         self.image = pg.image.load('Sprite Pack 5/ball.png')
         self.image = pg.transform.scale(self.image, (30, 30))
 
-
         self.rect = self.image.get_rect()
         if direction == 'right':
             self.rect.x = player_rect.right
@@ -285,8 +318,6 @@ class Ball(pg.sprite.Sprite):
 
         if self.rect.right < left_edge or self.rect.x > right_edge:
             self.kill()
-
-
 
 
 class Player(pg.sprite.Sprite):
@@ -474,6 +505,7 @@ class Game:
     def __init__(self):
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption("Платформер")
+        self.level = 2
         self.setup()
 
     # noinspection PyAttributeOutsideInit
@@ -492,6 +524,7 @@ class Game:
         self.enemies = pg.sprite.Group()
         self.balls = pg.sprite.Group()
         self.coins = pg.sprite.Group()
+        self.portals = pg.sprite.Group()
         self.collected_coins = 0
 
         self.sky = pg.image.load("map/sky.png")
@@ -509,7 +542,7 @@ class Game:
         self.ruins = pg.transform.scale(self.ruins,
                                         (int(self.ruins.get_width() * ruins_scale), SCREEN_HEIGHT))
 
-        self.tmx_map = pytmx.load_pygame("map/level 1.tmx")
+        self.tmx_map = pytmx.load_pygame(f"map/level {self.level}.tmx")
 
         self.map_pixel_width = self.tmx_map.width * self.tmx_map.tilewidth * TILE_SCALE
         self.map_pixel_height = self.tmx_map.height * self.tmx_map.tileheight * TILE_SCALE
@@ -532,6 +565,14 @@ class Game:
                         )
                         self.all_sprites.add(platform)
                         self.platforms.add(platform)
+
+                    elif layer.name == 'portals':
+                        portal = Portal(
+                            x * self.tmx_map.tilewidth,
+                            y * self.tmx_map.tileheight,
+                        )
+                        self.all_sprites.add(portal)
+                        self.portals.add(portal)
 
                     elif layer.name == 'foreground':
                         platform = Platform(
@@ -565,10 +606,6 @@ class Game:
                         self.all_sprites.add(croc)
                         self.enemies.add(croc)
 
-
-
-
-
                     else:
                         platform = Platform(
                             tile,
@@ -576,6 +613,8 @@ class Game:
                             y * self.tmx_map.tileheight
                         )
                         self.all_sprites.add(platform)
+
+        self.coins_amount = len(self.coins.sprites())
 
         self.camera_x = 0
         self.camera_y = 0
@@ -599,7 +638,7 @@ class Game:
                 self.is_running = False
             if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
                 direction = 'right' if self.player.current_animation in (
-                self.player.idle_animation_right, self.player.running_animation_right) else 'left'
+                    self.player.idle_animation_right, self.player.running_animation_right) else 'left'
                 ball = Ball(self.player.rect, direction)
                 self.balls.add(ball)
                 self.all_sprites.add(ball)
@@ -632,9 +671,10 @@ class Game:
 
         self.player.update(self.platforms)
         self.enemies.update(self.platforms)
-        self.balls.update(self.player.rect.x - SCREEN_WIDTH //2,
-                          self.player.rect.x + SCREEN_WIDTH //2)
+        self.balls.update(self.player.rect.x - SCREEN_WIDTH // 2,
+                          self.player.rect.x + SCREEN_WIDTH // 2)
         self.coins.update()
+        self.portals.update()
         self.camera_x = self.player.rect.x - SCREEN_WIDTH // 2
         self.camera_y = self.player.rect.y - SCREEN_HEIGHT // 2
 
@@ -646,7 +686,9 @@ class Game:
 
         pg.sprite.groupcollide(self.balls, self.platforms, True, False)
 
-
+        if pg.sprite.spritecollide(self.player, self.portals, False) and self.collected_coins > self.coins_amount /2:
+            self.level += 1
+            self.setup()
 
         hits = pg.sprite.spritecollide(self.player, self.coins, True)
 
