@@ -717,7 +717,7 @@ class Game:
         pg.draw.rect(self.screen, pg.Color(255, int(self.player.hp / 10 * 255), 0), (20, 20, self.player.hp * 10, 15))
         pg.draw.rect(self.screen, pg.Color("black"), (20, 20, 100, 15), 2)
 
-        self.screen.blit(font.render(f'{self.collected_coins}', False, pg.Color('yellow')), (SCREEN_WIDTH - 50, 20))
+        self.screen.blit(font.render(f'{self.cfollected_coins}', False, pg.Color('yellow')), (SCREEN_WIDTH - 50, 20))
 
         if self.mode == 'game over':
             text = font.render("Game  Over", False, (255, 0, 0))
